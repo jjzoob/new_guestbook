@@ -82,7 +82,7 @@ def render_content():
                 required=True,
                 maxLength=MAX_MESSAGE_CHAR
             ),
-            Button("Submit", type="submit"),
+            Button("提交", type="submit"),
             role="group"
         ),
         method="post", 
