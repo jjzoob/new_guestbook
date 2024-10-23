@@ -13,7 +13,7 @@ load_dotenv()
 
 MAX_NAME_CHAR = 15
 MAX_MESSAGE_CHAR = 50
-TIMESTAMP_FMT = "%Y-%m-%d %I:%M:%S %p CET"
+TIMESTAMP_FMT = "%Y-%m-%d %I:%M:%S %p CST"
 
 # Initialize Supabase client
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
@@ -23,18 +23,20 @@ app, rt = fast_app(
     hdrs=(Link(rel="icon", type="assets/x-icon", href="/assets/favicon.png"),),)
 
 
-def get_cet_time():
-    cet_tz = pytz.timezone("CET") # CET 欧洲中部时间
-    # cet_tz = pytz.timezone("Asia/Shanghai") # 上海时间
-    return datetime.now(cet_tz)
+def get_time():
+    # cet_tz = pytz.timezone("CET") # CET 欧洲中部时间
+    tz = pytz.timezone("Asia/Shanghai") # 上海时间
+    return datetime.now(tz)
 
 
 def add_message(name, message):
-    timestamp = get_cet_time().strftime(TIMESTAMP_FMT)
+    timestamp = get_time().strftime(TIMESTAMP_FMT)
     supabase.table("MyGuestbook").insert(
         {"name": name, "message": message, "timestamp": timestamp}
     ).execute()
 
+def delete_message(id):
+    supabase.table("MyGuestbook").delete().eq("id", id).execute()
 
 def get_messages():
     # sort by 'id' in descending order to get the latest entries first
@@ -45,9 +47,9 @@ def get_messages():
 
 def render_message(entry):
     return Article(
-        Header(f"Name:{entry['name']}"),
+        Header(f"姓名:{entry['name']}",Button("➖",hx_delete=f"/delete-message/{entry['id']}",hx_target="#message-list",hx_swap="outerHTML",hx_confirm="确定要删除吗？")),
         P(entry['message']),
-        Footer(Small(Em(f"Posted:{entry['timestamp']}")))
+        Footer(Small(Em(f"时间:{entry['timestamp']}")))
     )
 
 
@@ -82,7 +84,7 @@ def render_content():
                 required=True,
                 maxLength=MAX_MESSAGE_CHAR
             ),
-            Button("提交", type="submit"),
+            Button("➕", type="submit"),
             role="group"
         ),
         method="post", 
@@ -92,9 +94,7 @@ def render_content():
         hx_on__after_request="this.reset()" # 请求完成后重置表单
     )
     return Div(
-        P(Em("Write something nice!")), # Em 斜体，强调（emphasize）
-        P("Our form will be here"),
-        # Video(src="assets/zilv.mp4", controls=True),
+        P(Em("写点什么吧！")), # Em 斜体，强调（emphasize）
         form,
         Div(
             "Made with 💖 by ",
@@ -106,12 +106,18 @@ def render_content():
 
 
 @rt('/')
-def get(): return Titled("My Guestbook 😊", render_content())
+def get(): return Titled("我的留言本 😊", render_content())
 
 
 @rt('/submit-message')
 def post(name: str, message: str):
     add_message(name, message)
+    return render_message_list()
+
+
+@rt('/delete-message/{id}')
+def delete(id: int):
+    delete_message(id)
     return render_message_list()
 
 serve()
